@@ -1,6 +1,3 @@
-import os
-import sqlite3
-
 from chatroom_prototype import db as db_mod
 
 

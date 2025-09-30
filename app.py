@@ -34,7 +34,6 @@ async def lifespan(app: FastAPI):
         pass
     yield
     # Shutdown: close NATS if connected
-    global _nats_connection
     try:
         if _nats_connection is not None and _nats_connection.is_connected:
             await _nats_connection.drain()
