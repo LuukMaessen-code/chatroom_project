@@ -3,6 +3,7 @@ import json
 import os
 from typing import Optional
 
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -20,7 +21,29 @@ except ImportError as exc:
     ) from exc
 
 
-app = FastAPI(title="NATS Chatroom Prototype")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: ensure DB default server, warm NATS connection
+    with get_db() as conn:
+        ensure_default_server(conn)
+    try:
+        await get_nats()
+    except Exception:
+        # It's okay if NATS isn't running at startup; connections will be
+        # retried on first use
+        pass
+    yield
+    # Shutdown: close NATS if connected
+    global _nats_connection
+    try:
+        if _nats_connection is not None and _nats_connection.is_connected:
+            await _nats_connection.drain()
+            await _nats_connection.close()
+    except Exception:
+        pass
+
+
+app = FastAPI(title="NATS Chatroom Prototype", lifespan=lifespan)
 
 
 # Mount static files from ./public
@@ -42,21 +65,6 @@ async def get_nats() -> nats.NATS:
     nats_url = os.environ.get("NATS_URL", "nats://127.0.0.1:4222")
     _nats_connection = await nats.connect(servers=[nats_url])
     return _nats_connection
-
-
-@app.on_event("startup")
-async def on_startup() -> None:
-    # Ensure database and default server exist
-    with get_db() as conn:
-        ensure_default_server(conn)
-    # Warm up NATS connection (do not block startup if it fails;
-    # connect lazily on first use)
-    try:
-        await get_nats()
-    except Exception:
-        # It's okay if NATS isn't running at startup; connections will be
-        # retried on first use
-        pass
 
 
 @app.get("/", response_class=HTMLResponse)
