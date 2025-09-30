@@ -13,7 +13,10 @@ try:
     import nats
 except ImportError as exc:
     raise RuntimeError(
-        "The 'nats-py' package is required. Install dependencies with 'pip install -r requirements.txt'."
+        (
+            "The 'nats-py' package is required. Install dependencies with "
+            "'pip install -r requirements.txt'."
+        )
     ) from exc
 
 
@@ -46,11 +49,13 @@ async def on_startup() -> None:
     # Ensure database and default server exist
     with get_db() as conn:
         ensure_default_server(conn)
-    # Warm up NATS connection (do not block startup if it fails; connect lazily on first use)
+    # Warm up NATS connection (do not block startup if it fails;
+    # connect lazily on first use)
     try:
         await get_nats()
     except Exception:
-        # It's okay if NATS isn't running at startup; connections will be retried on first use
+        # It's okay if NATS isn't running at startup; connections will be
+        # retried on first use
         pass
 
 
@@ -159,6 +164,3 @@ async def websocket_endpoint(websocket: WebSocket, server_id: int) -> None:
             sender_task.cancel()
         except Exception:
             pass
-
-
-
