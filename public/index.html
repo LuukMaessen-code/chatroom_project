@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>NATS Chatroom Prototype</title>
+    <style>
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 0; background: #0f172a; color: #e2e8f0; }
+      header { padding: 16px; background: #111827; border-bottom: 1px solid #1f2937; }
+      main { display: grid; grid-template-columns: 320px 1fr; height: calc(100vh - 64px); }
+      .sidebar { border-right: 1px solid #1f2937; padding: 16px; }
+      .servers { display: grid; gap: 8px; }
+      .server { padding: 12px; border-radius: 8px; background: #1f2937; cursor: pointer; border: 1px solid transparent; }
+      .server:hover { border-color: #374151; }
+      .content { display: grid; grid-template-rows: 1fr auto; }
+      .messages { padding: 16px; overflow-y: auto; }
+      .bubble { margin: 8px 0; padding: 10px 12px; border-radius: 10px; background: #111827; border: 1px solid #1f2937; }
+      .bubble.mine { background: #1e3a8a; border-color: #1d4ed8; color: #dbeafe; margin-left: auto; max-width: 80%; text-align: right; }
+      .bubble:not(.mine) { max-width: 80%; }
+      .system { color: #9ca3af; font-style: italic; }
+      .input { display: flex; gap: 8px; padding: 12px; border-top: 1px solid #1f2937; background: #0b1220; }
+      input[type="text"] { flex: 1; padding: 10px 12px; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: #e2e8f0; }
+      button { padding: 10px 12px; border-radius: 8px; border: 1px solid #334155; background: #1f2937; color: #e2e8f0; cursor: pointer; }
+      button:hover { background: #243040; }
+      .hidden { display: none !important; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h2>NATS Chatroom</h2>
+    </header>
+    <main>
+      <aside class="sidebar">
+        <h3>Servers</h3>
+        <div style="margin: 8px 0 16px 0;">
+          <label for="username" style="display:block; margin-bottom:6px; color:#9ca3af;">Username</label>
+          <input id="username" type="text" placeholder="Enter username" style="width:100%; padding:10px 12px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e2e8f0;" />
+        </div>
+        <div id="servers" class="servers"></div>
+      </aside>
+      <section class="content">
+        <div id="messages" class="messages"></div>
+        <div class="input">
+          <input id="text" type="text" placeholder="Type a message and press Enter" />
+          <button id="send">Send</button>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const serversEl = document.getElementById('servers');
+      const messagesEl = document.getElementById('messages');
+      const textEl = document.getElementById('text');
+      const sendBtn = document.getElementById('send');
+      const usernameEl = document.getElementById('username');
+      let ws = null;
+      let currentServer = null;
+      let currentUsername = '';
+
+      function addMessage(content, isSystem = false, isMine = false) {
+        const div = document.createElement('div');
+        div.className = 'bubble' + (isSystem ? ' system' : '') + (isMine ? ' mine' : '');
+        div.textContent = content;
+        messagesEl.appendChild(div);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+      }
+
+      async function loadServers() {
+        const res = await fetch('/api/servers');
+        const servers = await res.json();
+        serversEl.innerHTML = '';
+        servers.forEach(s => {
+          const btn = document.createElement('div');
+          btn.className = 'server';
+          btn.textContent = s.name;
+          btn.onclick = () => joinServer(s);
+          serversEl.appendChild(btn);
+        });
+        // No auto-join; user must click after setting username
+      }
+
+      function joinServer(server) {
+        const username = (usernameEl.value || '').trim();
+        if (!username) {
+          alert('Please enter a username before joining.');
+          return;
+        }
+        currentServer = server;
+        currentUsername = username;
+        messagesEl.innerHTML = '';
+        if (ws) { try { ws.close(); } catch {}
+        }
+        const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+        const url = `${proto}://${location.host}/ws/${server.id}?username=${encodeURIComponent(username)}`;
+        ws = new WebSocket(url);
+        ws.onopen = () => addMessage(`You joined ${server.name} as ${username}`, true);
+        ws.onmessage = (ev) => {
+          try {
+            const data = JSON.parse(ev.data);
+            if (data.type === 'system') {
+              if (data.event === 'join') addMessage(`${data.username || 'Someone'} joined`, true);
+              if (data.event === 'leave') addMessage(`${data.username || 'Someone'} left`, true);
+            } else if (data.type === 'message') {
+              const from = data.username || 'anonymous';
+              const mine = data.username && currentUsername && data.username === currentUsername;
+              addMessage(`${from}: ${data.text}`, false, mine);
+            } else {
+              addMessage(ev.data);
+            }
+          } catch {
+            addMessage(ev.data);
+          }
+        };
+        ws.onclose = () => addMessage('Disconnected', true);
+      }
+
+      function sendCurrent() {
+        if (!ws || ws.readyState !== WebSocket.OPEN) return;
+        const txt = textEl.value.trim();
+        if (!txt) return;
+        ws.send(txt);
+        textEl.value = '';
+      }
+
+      sendBtn.onclick = sendCurrent;
+      textEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') sendCurrent(); });
+
+      loadServers();
+    </script>
+  </body>
+  </html>
+
+
+
