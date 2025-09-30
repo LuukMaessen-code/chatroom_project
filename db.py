@@ -47,7 +47,10 @@ def ensure_default_server(conn: sqlite3.Connection) -> None:
 
 def list_servers(conn: sqlite3.Connection) -> list[dict]:
     cur = conn.execute("SELECT id, name FROM servers ORDER BY id ASC")
-    return [{"id": r["id"], "name": r["name"]} for r in cur.fetchall()]
+    return [
+        {"id": row["id"], "name": row["name"]}
+        for row in cur.fetchall()
+    ]
 
 
 def get_server_by_id(conn: sqlite3.Connection, server_id: int) -> Optional[dict]:
