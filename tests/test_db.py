@@ -21,4 +21,3 @@ def test_list_servers_returns_default(tmp_path):
         servers = db_mod.list_servers(conn)
         assert len(servers) == 1
         assert servers[0]["name"] == "Main Room"
-

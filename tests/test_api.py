@@ -18,4 +18,3 @@ def test_root_serves_index_html(monkeypatch):
     resp = client.get("/")
     assert resp.status_code == 200
     assert "<!doctype html>" in resp.text.lower()
-
