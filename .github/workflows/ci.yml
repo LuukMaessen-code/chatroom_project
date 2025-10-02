@@ -29,10 +29,6 @@ jobs:
         # Install the package in editable mode
         pip install -e .
 
-    # Run flake8 for linting (ignore style handled by Black)
-    - name: Run flake8 (linting)
-      run: flake8 . --max-line-length=100 --ignore=E203,W503
-
     # Auto-format code with Black
     - name: Format code with Black
       run: black . --check --diff
@@ -40,6 +36,10 @@ jobs:
     # Auto-sort imports with isort
     - name: Sort imports with isort
       run: isort . --check-only --diff
+
+    # Run flake8 for linting (ignore style handled by Black)
+    - name: Run flake8 (linting)
+      run: flake8 . --max-line-length=100 --ignore=E203,W503
 
     # Run tests
     - name: Run tests
