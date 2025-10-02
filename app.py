@@ -1,14 +1,14 @@
 import asyncio
 import json
 import os
+from contextlib import asynccontextmanager
 from typing import Optional
 
-from contextlib import asynccontextmanager
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
-from .db import get_db, ensure_default_server, list_servers, get_server_by_id
+from db import ensure_default_server, get_db, get_server_by_id, list_servers
 
 try:
     import nats
@@ -123,23 +123,27 @@ async def websocket_endpoint(websocket: WebSocket, server_id: int) -> None:
 
     try:
         # Notify join
-        join_payload = json.dumps({
-            "type": "system",
-            "event": "join",
-            "serverId": server_id,
-            "username": username,
-        }).encode("utf-8")
+        join_payload = json.dumps(
+            {
+                "type": "system",
+                "event": "join",
+                "serverId": server_id,
+                "username": username,
+            }
+        ).encode("utf-8")
         await nc.publish(subject, join_payload)
 
         while True:
             text = await websocket.receive_text()
             # Expect client to send simple text; wrap into JSON
-            payload = json.dumps({
-                "type": "message",
-                "serverId": server_id,
-                "text": text,
-                "username": username,
-            }).encode("utf-8")
+            payload = json.dumps(
+                {
+                    "type": "message",
+                    "serverId": server_id,
+                    "text": text,
+                    "username": username,
+                }
+            ).encode("utf-8")
             await nc.publish(subject, payload)
 
     except WebSocketDisconnect:
@@ -147,12 +151,14 @@ async def websocket_endpoint(websocket: WebSocket, server_id: int) -> None:
     finally:
         try:
             # Notify leave
-            leave_payload = json.dumps({
-                "type": "system",
-                "event": "leave",
-                "serverId": server_id,
-                "username": username,
-            }).encode("utf-8")
+            leave_payload = json.dumps(
+                {
+                    "type": "system",
+                    "event": "leave",
+                    "serverId": server_id,
+                    "username": username,
+                }
+            ).encode("utf-8")
             await nc.publish(subject, leave_payload)
         except Exception:
             pass

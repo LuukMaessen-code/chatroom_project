@@ -3,7 +3,6 @@ import sqlite3
 from contextlib import contextmanager
 from typing import Iterator, Optional
 
-
 DB_PATH = os.path.join(os.path.dirname(__file__), "chatroom.db")
 
 
@@ -47,10 +46,7 @@ def ensure_default_server(conn: sqlite3.Connection) -> None:
 
 def list_servers(conn: sqlite3.Connection) -> list[dict]:
     cur = conn.execute("SELECT id, name FROM servers ORDER BY id ASC")
-    return [
-        {"id": row["id"], "name": row["name"]}
-        for row in cur.fetchall()
-    ]
+    return [{"id": row["id"], "name": row["name"]} for row in cur.fetchall()]
 
 
 def get_server_by_id(conn: sqlite3.Connection, server_id: int) -> Optional[dict]:
