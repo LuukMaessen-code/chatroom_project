@@ -8,7 +8,14 @@ from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
-from db import ensure_default_server, get_db, get_server_by_id, list_servers
+try:
+    # Try package-style imports (when run as module)
+    from .db import ensure_default_server, get_db, get_server_by_id, list_servers
+    from .message_history import message_history
+except ImportError:
+    # Fall back to direct imports (when run directly or in tests)
+    from db import ensure_default_server, get_db, get_server_by_id, list_servers
+    from message_history import message_history
 
 try:
     import nats
@@ -83,6 +90,18 @@ async def api_list_servers() -> list[dict]:
     return servers
 
 
+@app.get("/api/servers/{server_id}/messages")
+async def api_get_messages(server_id: int, limit: int = 100) -> list[dict]:
+    """Get message history for a server."""
+    with get_db() as conn:
+        server = get_server_by_id(conn, server_id)
+        if server is None:
+            raise HTTPException(status_code=404, detail="Server not found")
+
+    messages = message_history.get_messages(server_id, limit)
+    return messages
+
+
 @app.websocket("/ws/{server_id}")
 async def websocket_endpoint(websocket: WebSocket, server_id: int) -> None:
     with get_db() as conn:
@@ -107,6 +126,14 @@ async def websocket_endpoint(websocket: WebSocket, server_id: int) -> None:
     send_queue: asyncio.Queue[bytes] = asyncio.Queue()
 
     async def nats_message_handler(msg):
+        # Save message to history
+        try:
+            message_data = json.loads(msg.data.decode("utf-8"))
+            message_history.save_message(server_id, message_data)
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            # Skip malformed messages
+            pass
+
         await send_queue.put(msg.data)
 
     sub = await nc.subscribe(subject, cb=nats_message_handler)
@@ -122,6 +149,15 @@ async def websocket_endpoint(websocket: WebSocket, server_id: int) -> None:
     sender_task = asyncio.create_task(ws_sender())
 
     try:
+        # Send message history to the new user
+        history_messages = message_history.get_messages(server_id, limit=50)
+        for msg in history_messages:
+            try:
+                await websocket.send_text(json.dumps(msg))
+            except Exception:
+                # If we can't send history, continue anyway
+                pass
+
         # Notify join
         join_payload = json.dumps(
             {
