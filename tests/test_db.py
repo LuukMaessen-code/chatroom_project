@@ -1,4 +1,8 @@
-from chatroom_prototype import db as db_mod
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+import db as db_mod
 
 
 def test_ensure_default_server_creates_one(tmp_path):
