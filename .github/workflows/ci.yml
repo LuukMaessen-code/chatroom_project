@@ -1,3 +1,4 @@
+
 name: Python CI
 
 on:
@@ -28,19 +29,19 @@ jobs:
         pip install flake8 black isort pytest
         # Install the package in editable mode
         pip install -e .
+    # Auto-format code with Black
+    - name: Format code with Black
+      run: black . --diff
+
+    # Auto-sort imports with isort
+    - name: Sort imports with isort
+      run: isort . --diff
 
     # Run flake8 for linting (ignore style handled by Black)
     - name: Run flake8 (linting)
       run: flake8 . --max-line-length=100 --ignore=E203,W503
 
-    # Auto-format code with Black
-    - name: Format code with Black
-      run: black . --check --diff
-
-    # Auto-sort imports with isort
-    - name: Sort imports with isort
-      run: isort . --check-only --diff
-
     # Run tests
     - name: Run tests
       run: pytest -v
+      

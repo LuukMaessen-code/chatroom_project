@@ -1,8 +1,10 @@
-import sys
 import os
+import sys
+
+# Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import db as db_mod
+import db as db_mod  # noqa: E402
 
 
 def test_ensure_default_server_creates_one(tmp_path):

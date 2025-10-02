@@ -1,9 +1,12 @@
-import sys
 import os
+import sys
+
+# Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from fastapi.testclient import TestClient
-from app import app
+from fastapi.testclient import TestClient  # noqa: E402
+
+from app import app  # noqa: E402
 
 
 def test_servers_endpoint(monkeypatch):
