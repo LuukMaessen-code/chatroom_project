@@ -53,7 +53,7 @@ Navigate to http://localhost:8000/
 
 ## Message History
 
-Messages are automatically saved to `message_history/server_{id}_history.jsonl` files. New users joining a room will see the last 50 messages for context.
+Messages are automatically saved to `chatroom_prototype/message_history/server_{id}_history.jsonl` files. New users joining a room will see the last 50 messages for context.
 
 ## Testing
 

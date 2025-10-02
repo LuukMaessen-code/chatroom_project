@@ -40,5 +40,6 @@ recent_messages = history.get_messages(server_id, limit=3)
 for i, msg in enumerate(recent_messages, 1):
     print(f"{i}. [{msg.get('timestamp', 'N/A')}] {msg}")
 
-print("\nMessage history files are stored in the 'example_history' directory.")
+print("\nMessage history files are stored in the 'message_history' directory.")
 print("Each server has its own file: server_{id}_history.jsonl")
+print(f"Full path: {history.history_dir}")

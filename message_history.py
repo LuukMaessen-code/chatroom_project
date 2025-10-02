@@ -1,4 +1,5 @@
 import json
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -8,7 +9,9 @@ class MessageHistory:
     """Handles saving and retrieving message history for chat rooms."""
 
     def __init__(self, history_dir: str = "message_history"):
-        self.history_dir = Path(history_dir)
+        # Create path relative to this module's directory
+        module_dir = Path(__file__).parent
+        self.history_dir = module_dir / history_dir
         self.history_dir.mkdir(exist_ok=True)
 
     def _get_history_file(self, server_id: int) -> Path:
