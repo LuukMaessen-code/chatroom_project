@@ -29,7 +29,7 @@ def test_root_serves_index_html(monkeypatch):
 def test_get_messages_endpoint(tmp_path):
     """Test the message history API endpoint."""
     # Set up temporary message history directory
-    from message_history import message_history
+    from history_io import message_history
 
     original_dir = message_history.history_dir
     message_history.history_dir = tmp_path / "test_history"

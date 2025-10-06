@@ -5,7 +5,7 @@ Example usage of the message history functionality.
 This script demonstrates how messages are saved and retrieved.
 """
 
-from message_history import MessageHistory
+from history_io import MessageHistory
 
 # Create a message history instance
 history = MessageHistory("example_history")

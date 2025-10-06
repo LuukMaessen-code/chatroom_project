@@ -11,11 +11,11 @@ from fastapi.staticfiles import StaticFiles
 try:
     # Try package-style imports (when run as module)
     from .db import ensure_default_server, get_db, get_server_by_id, list_servers
-    from .message_history import message_history
+    from .history_io import message_history
 except ImportError:
     # Fall back to direct imports (when run directly or in tests)
     from db import ensure_default_server, get_db, get_server_by_id, list_servers
-    from message_history import message_history
+    from history_io import message_history
 
 try:
     import nats
@@ -126,14 +126,8 @@ async def websocket_endpoint(websocket: WebSocket, server_id: int) -> None:
     send_queue: asyncio.Queue[bytes] = asyncio.Queue()
 
     async def nats_message_handler(msg):
-        # Save message to history
-        try:
-            message_data = json.loads(msg.data.decode("utf-8"))
-            message_history.save_message(server_id, message_data)
-        except (json.JSONDecodeError, UnicodeDecodeError):
-            # Skip malformed messages
-            pass
-
+        # Only forward to WebSocket; message persistence is handled by the
+        # dedicated message history microservice.
         await send_queue.put(msg.data)
 
     sub = await nc.subscribe(subject, cb=nats_message_handler)

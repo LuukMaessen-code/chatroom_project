@@ -4,7 +4,7 @@ import sys
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from message_history import MessageHistory  # noqa: E402
+from history_io import MessageHistory  # noqa: E402
 
 
 def test_message_history_save_and_retrieve(tmp_path):

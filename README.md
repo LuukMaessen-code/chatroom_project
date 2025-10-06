@@ -53,7 +53,23 @@ Navigate to http://localhost:8000/
 
 ## Message History
 
-Messages are automatically saved to `chatroom_prototype/message_history/server_{id}_history.jsonl` files. New users joining a room will see the last 50 messages for context.
+Messages are automatically saved to `chatroom_prototype/message_history/server_{id}_history.jsonl` files by a dedicated microservice that listens to NATS subjects.
+
+### Run the Message History Microservice
+
+In a separate terminal, start the history service so it can persist all chat messages:
+
+```bash
+# From the project root
+python -m chatroom_prototype.message_history_service
+
+# Or when inside the package directory
+python message_history_service.py
+```
+
+The service connects to NATS at `NATS_URL` (default `nats://127.0.0.1:4222`) and subscribes to `chat.>`.
+
+New users joining a room will see the last 50 messages for context.
 
 ## Testing
 
