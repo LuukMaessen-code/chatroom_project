@@ -52,8 +52,8 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="NATS Chatroom Prototype", lifespan=lifespan)
 
 
-# Mount static files from ./public
-public_dir = os.path.join(os.path.dirname(__file__), "public")
+# Mount static files from project root ./public (one level up from package)
+public_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "public")
 if not os.path.isdir(public_dir):
     os.makedirs(public_dir, exist_ok=True)
 app.mount("/public", StaticFiles(directory=public_dir), name="public")

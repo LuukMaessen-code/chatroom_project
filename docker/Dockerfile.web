@@ -19,6 +19,4 @@ EXPOSE 8000
 
 ENV NATS_URL=nats://nats:4222
 
-CMD ["python", "-m", "uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
-
-
+CMD ["python", "-m", "uvicorn", "chatroom_prototype.app:app", "--host", "0.0.0.0", "--port", "8000"]

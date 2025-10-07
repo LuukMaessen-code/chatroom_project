@@ -18,6 +18,4 @@ COPY . .
 ENV NATS_URL=nats://nats:4222
 ENV HISTORY_DIR=/app/message_history
 
-CMD ["python", "message_history_service.py"]
-
-
+CMD ["python", "-m", "chatroom_prototype.message_history_service"]
