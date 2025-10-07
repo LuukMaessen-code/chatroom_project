@@ -52,7 +52,7 @@ jobs:
 
       # Run tests
       - name: Run tests
-        run: pytest -v
+        run: pytest chatroom_prototype/tests -v
 
   docker:
     name: Docker Build
