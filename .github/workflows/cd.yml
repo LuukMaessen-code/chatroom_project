@@ -35,7 +35,7 @@ jobs:
       - name: Build and push history Docker image
         uses: docker/build-push-action@v5
         with:
-          context: ./chatroom_prototype
+          context: .
           file: ./Docker/Dockerfile.history
           push: true
           tags: your-dockerhub-username/chatroom-history:latest,${{ env.IMAGE_TAG }}
@@ -44,7 +44,7 @@ jobs:
       - name: Build and push web Docker image
         uses: docker/build-push-action@v5
         with:
-          context: ./chatroom_prototype
+          context: .
           file: ./Docker/Dockerfile.web
           push: true
           tags: your-dockerhub-username/chatroom-web:latest,${{ env.IMAGE_TAG }}
