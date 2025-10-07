@@ -38,7 +38,7 @@ jobs:
       - name: Build and push image
         uses: docker/build-push-action@v5
         with:
-          context: .
+          context: ./docker
           push: true
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/message-history:cd-latest
