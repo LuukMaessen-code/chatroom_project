@@ -36,7 +36,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./Docker/Dockerfile.history
+          file: Docker/Dockerfile.history
           push: true
           tags: your-dockerhub-username/chatroom-history:latest,${{ env.IMAGE_TAG }}
 
@@ -45,6 +45,6 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./Docker/Dockerfile.web
+          file: Docker/Dockerfile.web
           push: true
           tags: your-dockerhub-username/chatroom-web:latest,${{ env.IMAGE_TAG }}
