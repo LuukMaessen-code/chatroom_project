@@ -3,9 +3,7 @@ name: Python CD
 on:
   workflow_run:
     workflows: ["Python CI"]
-    branches: [ cd ]
-    types:
-      - completed
+    types: [ completed ]
 
 jobs:
   deploy:
