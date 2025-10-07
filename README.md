@@ -86,4 +86,3 @@ The project includes:
 - **Formatting**: black, isort  
 - **CI/CD**: GitHub Actions workflow
 - **Package configuration**: pyproject.toml
-
