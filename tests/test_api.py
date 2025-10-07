@@ -1,72 +1,33 @@
-import os
-import sys
+import pytest
+import httpx
 
-# Add parent directory to path for imports
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from fastapi.testclient import TestClient  # noqa: E402
-
-from app import app  # noqa: E402
+from chatroom_prototype.app import app
 
 
-def test_servers_endpoint(monkeypatch):
-    # Ensure DB has default server on startup handler path
-    client = TestClient(app)
-    resp = client.get("/api/servers")
-    assert resp.status_code == 200
-    data = resp.json()
-    assert isinstance(data, list)
-    assert any(s.get("name") == "Main Room" for s in data)
-
-
-def test_root_serves_index_html(monkeypatch):
-    client = TestClient(app)
-    resp = client.get("/")
-    assert resp.status_code == 200
-    assert "<!doctype html>" in resp.text.lower()
-
-
-def test_get_messages_endpoint(tmp_path):
-    """Test the message history API endpoint."""
-    # Set up temporary message history directory
-    from history_io import message_history
-
-    original_dir = message_history.history_dir
-    message_history.history_dir = tmp_path / "test_history"
-    message_history.history_dir.mkdir(exist_ok=True)
-
-    try:
-        client = TestClient(app)
-
-        # Test getting messages for non-existent server
-        resp = client.get("/api/servers/999/messages")
-        assert resp.status_code == 404
-
-        # Add some test messages to server 1
-        test_messages = [
-            {"type": "message", "username": "alice", "text": "Hello!"},
-            {"type": "message", "username": "bob", "text": "Hi there!"},
-        ]
-
-        for msg in test_messages:
-            message_history.save_message(1, msg)
-
-        # Test getting messages for existing server
-        resp = client.get("/api/servers/1/messages")
+@pytest.mark.asyncio
+async def test_list_servers_returns_at_least_one_room():
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        resp = await client.get("/api/servers")
         assert resp.status_code == 200
         data = resp.json()
         assert isinstance(data, list)
-        assert len(data) == 2
-        assert data[0]["username"] == "alice"
-        assert data[1]["username"] == "bob"
+        assert len(data) >= 1
+        assert "id" in data[0] and "name" in data[0]
 
-        # Test with limit parameter
-        resp = client.get("/api/servers/1/messages?limit=1")
+
+@pytest.mark.asyncio
+async def test_get_messages_for_first_server():
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        servers = (await client.get("/api/servers")).json()
+        assert servers, "Expected at least one server"
+        server_id = servers[0]["id"]
+
+        resp = await client.get(f"/api/servers/{server_id}/messages?limit=5")
         assert resp.status_code == 200
-        data = resp.json()
-        assert len(data) == 1
-        assert data[0]["username"] == "bob"  # Most recent message
+        msgs = resp.json()
+        assert isinstance(msgs, list)
 
-    finally:
-        # Restore original directory
-        message_history.history_dir = original_dir

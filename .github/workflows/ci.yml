@@ -1,11 +1,10 @@
-
 name: Python CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [ cd ]
   pull_request:
-    branches: [ main ]
+    branches: [ cd ]
 
 jobs:
   build:
@@ -14,6 +13,15 @@ jobs:
     steps:
     # Checkout the repo
     - uses: actions/checkout@v3
+
+    # Cache pip dependencies
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
 
     # Set up Python
     - name: Set up Python
@@ -52,12 +60,25 @@ jobs:
     needs: build
     steps:
       - uses: actions/checkout@v3
+
+      # Cache Docker layers
+      - name: Cache Docker layers
+      uses: actions/cache@v3
+      with:
+        path: /tmp/.buildx-cache
+        key: ${{ runner.os }}-buildx-${{ github.sha }}
+        restore-keys: |
+          ${{ runner.os }}-buildx-
+
+      # Set up Docker Buildx
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+
+      # Build images using docker-compose
       - name: Build images with docker-compose
-        run: |
-          docker compose -f docker-compose.yml build
+        run: docker compose -f docker-compose.yml build
+
+      # Validate docker-compose config
       - name: Compose config validation
-        run: |
-          docker compose -f docker-compose.yml config
+        run: docker compose -f docker-compose.yml config
       
