@@ -22,7 +22,7 @@ services:
       - "8000:8000"
     volumes:
       - chat_db:/app/chatroom.db
-      - chat_history:/app/message_history
+      - chat_history:/app/chatroom_prototype/message_history
 
   history:
     build:

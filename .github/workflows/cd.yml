@@ -3,7 +3,9 @@ name: Python CD
 on:
   workflow_run:
     workflows: ["Python CI"]
-    types: [ completed ]
+    branches: [ cd ]
+    types:
+      - completed
 
 jobs:
   deploy:
@@ -34,16 +36,30 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # Build and push image
-      - name: Build and push image
+      # --- Build and push the history service ---
+      - name: Build and push Message History image
         uses: docker/build-push-action@v5
         with:
-          context: ./docker
+          context: .
+          file: ./docker/Dockerfile.history
           push: true
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/message-history:cd-latest
             ${{ secrets.DOCKERHUB_USERNAME }}/message-history:sha-${{ github.sha }}
 
-      # Verify image pushed
-      - name: Verify image pushed
-        run: docker pull ${{ secrets.DOCKERHUB_USERNAME }}/message-history:cd-latest
+      # --- Build and push the web service ---
+      - name: Build and push Web image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./docker/Dockerfile.web
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/message-web:cd-latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/message-web:sha-${{ github.sha }}
+
+      # Verify images pushed
+      - name: Verify images pushed
+        run: |
+          docker pull ${{ secrets.DOCKERHUB_USERNAME }}/message-history:cd-latest
+          docker pull ${{ secrets.DOCKERHUB_USERNAME }}/message-web:cd-latest
