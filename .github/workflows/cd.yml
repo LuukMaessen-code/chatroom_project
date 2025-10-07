@@ -1,20 +1,21 @@
 name: Docker CD
 
 on:
-  workflow_run:
-    workflows: ["Python CI"]  
+  push:
     branches: [ cd ]
-    types:
-      - completed
 
 jobs:
   publish:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}  # Only run if CI passed
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'cd' }}
     runs-on: ubuntu-latest
 
     steps:
-      # Checkout the repo
+      # Checkout the full repository
       - uses: actions/checkout@v3
+
+      # Debug: list files to ensure docker/ folder is present
+      - name: Debug repo structure
+        run: ls -R
 
       # Log in to Docker Hub
       - name: Log in to Docker Hub
@@ -35,7 +36,7 @@ jobs:
       - name: Build and push history Docker image
         uses: docker/build-push-action@v5
         with:
-          context: .                   # repo root
+          context: .
           file: docker/Dockerfile.history
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/chatroom-history:latest,${{ secrets.DOCKERHUB_USERNAME }}/chatroom-history:${{ env.IMAGE_TAG }}
@@ -47,4 +48,4 @@ jobs:
           context: .
           file: docker/Dockerfile.web
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/chatroom-history:latest,${{ secrets.DOCKERHUB_USERNAME }}/chatroom-history:${{ env.IMAGE_TAG }}
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/chatroom-web:latest,${{ secrets.DOCKERHUB_USERNAME }}/chatroom-web:${{ env.IMAGE_TAG }}
