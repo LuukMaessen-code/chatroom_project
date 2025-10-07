@@ -3,7 +3,8 @@ import sqlite3
 from contextlib import contextmanager
 from typing import Iterator, Optional
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "chatroom.db")
+# Database file resides at project root alongside package directory
+DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "chatroom.db")
 
 
 def _init_schema(conn: sqlite3.Connection) -> None:

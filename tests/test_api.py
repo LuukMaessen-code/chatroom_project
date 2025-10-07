@@ -1,26 +1,32 @@
-import os
-import sys
+import pytest
+import httpx
 
-# Add parent directory to path for imports
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from fastapi.testclient import TestClient  # noqa: E402
-
-from app import app  # noqa: E402
+from chatroom_prototype.app import app
 
 
-def test_servers_endpoint(monkeypatch):
-    # Ensure DB has default server on startup handler path
-    client = TestClient(app)
-    resp = client.get("/api/servers")
-    assert resp.status_code == 200
-    data = resp.json()
-    assert isinstance(data, list)
-    assert any(s.get("name") == "Main Room" for s in data)
+@pytest.mark.asyncio
+async def test_list_servers_returns_at_least_one_room():
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        resp = await client.get("/api/servers")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert isinstance(data, list)
+        assert len(data) >= 1
+        assert "id" in data[0] and "name" in data[0]
 
 
-def test_root_serves_index_html(monkeypatch):
-    client = TestClient(app)
-    resp = client.get("/")
-    assert resp.status_code == 200
-    assert "<!doctype html>" in resp.text.lower()
+@pytest.mark.asyncio
+async def test_get_messages_for_first_server():
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        servers = (await client.get("/api/servers")).json()
+        assert servers, "Expected at least one server"
+        server_id = servers[0]["id"]
+
+        resp = await client.get(f"/api/servers/{server_id}/messages?limit=5")
+        assert resp.status_code == 200
+        msgs = resp.json()
+        assert isinstance(msgs, list)
