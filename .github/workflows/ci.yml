@@ -82,3 +82,4 @@ jobs:
       # Validate docker-compose config
       - name: Compose config validation
         run: docker compose -f docker-compose.yml config
+        
