@@ -66,5 +66,3 @@ class MessageHistory:
 
 
 message_history = MessageHistory()
-
-

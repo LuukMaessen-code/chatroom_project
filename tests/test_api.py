@@ -30,4 +30,3 @@ async def test_get_messages_for_first_server():
         assert resp.status_code == 200
         msgs = resp.json()
         assert isinstance(msgs, list)
-

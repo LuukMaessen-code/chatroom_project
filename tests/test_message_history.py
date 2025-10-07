@@ -17,4 +17,3 @@ def test_message_history_roundtrip(tmp_path, monkeypatch):
     assert msgs[1]["text"] == "world"
 
     assert message_history.clear_history(server_id) is True
-
