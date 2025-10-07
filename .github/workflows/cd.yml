@@ -1,8 +1,8 @@
 name: Docker CD
 
 on:
-  branches: [ cd ]
-
+  push:
+    branches: [ cd ]
 
 jobs:
   publish:
