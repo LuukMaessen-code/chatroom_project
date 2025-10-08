@@ -28,7 +28,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.13'
+          python-version: '3.11'
 
       # Install dependencies
       - name: Install dependencies
@@ -99,4 +99,3 @@ jobs:
           file: docker/Dockerfile.web
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/chatroom-web:latest,${{ secrets.DOCKERHUB_USERNAME }}/chatroom-web:${{ env.IMAGE_TAG }}
-        

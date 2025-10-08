@@ -35,6 +35,7 @@ You can run the server in multiple ways:
 ```bash
 # As a package (recommended)
 uvicorn chatroom_prototype.app:app --reload --host 0.0.0.0 --port 8000
+python -m chatroom_prototype.message_history_service
 
 # Or directly from the project directory
 cd chatroom_prototype

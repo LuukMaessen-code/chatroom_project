@@ -8,6 +8,7 @@ WORKDIR /app
 
 RUN apt-get update -y && apt-get install -y --no-install-recommends \
     ca-certificates \
+    build-essential \
  && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt ./
@@ -16,6 +17,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 ENV NATS_URL=nats://nats:4222
-ENV HISTORY_DIR=/app/message_history
 
 CMD ["python", "-m", "chatroom_prototype.message_history_service"]
