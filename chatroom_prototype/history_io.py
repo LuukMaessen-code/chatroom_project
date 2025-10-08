@@ -1,67 +1,66 @@
+import os
 import json
-from datetime import datetime, timezone
-from pathlib import Path
+import asyncio
 from typing import Dict, List, Optional
+import asyncpg
+from datetime import datetime, timezone
 
 
 class MessageHistory:
-    """Handles saving and retrieving message history for chat rooms."""
+    """Handles saving and retrieving message history from Postgres."""
 
-    def __init__(self, history_dir: str = "message_history"):
-        module_dir = Path(__file__).parent
-        self.history_dir = module_dir / history_dir
-        self.history_dir.mkdir(exist_ok=True)
+    def __init__(self, database_url: Optional[str] = None):
+        self.database_url = database_url or os.environ.get("DATABASE_URL")
+        if not self.database_url:
+            raise ValueError("DATABASE_URL must be set for Postgres connection")
+        self.pool: Optional[asyncpg.pool.Pool] = None
 
-    def _get_history_file(self, server_id: int) -> Path:
-        return self.history_dir / f"server_{server_id}_history.jsonl"
+    async def init(self):
+        self.pool = await asyncpg.create_pool(dsn=self.database_url)
 
-    def save_message(self, server_id: int, message_data: Dict) -> None:
+    async def save_message(self, server_id: int, message_data: Dict) -> None:
         if "timestamp" not in message_data:
             message_data["timestamp"] = datetime.now(timezone.utc).isoformat()
-        history_file = self._get_history_file(server_id)
-        with open(history_file, "a", encoding="utf-8") as f:
-            f.write(json.dumps(message_data) + "\n")
 
-    def get_messages(self, server_id: int, limit: Optional[int] = 100) -> List[Dict]:
-        history_file = self._get_history_file(server_id)
-        if not history_file.exists():
-            return []
-        messages: List[Dict] = []
-        try:
-            with open(history_file, "r", encoding="utf-8") as f:
-                for line in f:
-                    line = line.strip()
-                    if line:
-                        try:
-                            message = json.loads(line)
-                            messages.append(message)
-                        except json.JSONDecodeError:
-                            continue
-        except IOError:
-            return []
-        if limit and len(messages) > limit:
-            messages = messages[-limit:]
-        return messages
+        async with self.pool.acquire() as conn:
+            await conn.execute(
+                """
+                INSERT INTO messages (server_id, type, event, username, text, timestamp, raw_data)
+                VALUES ($1, $2, $3, $4, $5, $6, $7)
+                """,
+                server_id,
+                message_data.get("type"),
+                message_data.get("event"),
+                message_data.get("username"),
+                message_data.get("text"),
+                message_data.get("timestamp"),
+                json.dumps(message_data),
+            )
 
-    def clear_history(self, server_id: int) -> bool:
-        history_file = self._get_history_file(server_id)
-        if history_file.exists():
-            history_file.unlink()
-            return True
-        return False
+    async def get_messages(self, server_id: int, limit: Optional[int] = 100) -> List[Dict]:
+        async with self.pool.acquire() as conn:
+            rows = await conn.fetch(
+                """
+                SELECT raw_data
+                FROM messages
+                WHERE server_id = $1
+                ORDER BY timestamp ASC
+                LIMIT $2
+                """,
+                server_id,
+                limit,
+            )
+        return [json.loads(row["raw_data"]) for row in rows]
 
-    def get_message_count(self, server_id: int) -> int:
-        history_file = self._get_history_file(server_id)
-        if not history_file.exists():
-            return 0
-        count = 0
-        try:
-            with open(history_file, "r", encoding="utf-8") as f:
-                for line in f:
-                    if line.strip():
-                        count += 1
-        except IOError:
-            return 0
+    async def clear_history(self, server_id: int) -> None:
+        async with self.pool.acquire() as conn:
+            await conn.execute("DELETE FROM messages WHERE server_id = $1", server_id)
+
+    async def get_message_count(self, server_id: int) -> int:
+        async with self.pool.acquire() as conn:
+            count = await conn.fetchval(
+                "SELECT COUNT(*) FROM messages WHERE server_id = $1", server_id
+            )
         return count
 
 

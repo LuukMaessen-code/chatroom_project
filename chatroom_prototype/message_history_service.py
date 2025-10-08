@@ -2,20 +2,23 @@ import asyncio
 import json
 import os
 import signal
-from datetime import datetime, timezone
-from pathlib import Path
 from typing import Optional
 
-
+# Load environment variables from .env
 try:
-    import nats
-except ImportError as exc:
-    raise RuntimeError(
-        (
-            "The 'nats-py' package is required. Install dependencies with "
-            "'pip install -r requirements.txt'."
-        )
-    ) from exc
+    from dotenv import load_dotenv
+
+    load_dotenv()
+except Exception:
+    pass
+
+import nats
+try:
+    # Prefer package-relative import when executed as a module
+    from .history_io import message_history
+except ImportError:
+    # Fallback for direct script execution
+    from history_io import message_history
 
 
 _nats_connection: Optional[nats.NATS] = None
@@ -32,28 +35,9 @@ async def get_nats() -> nats.NATS:
 
 
 async def run_service() -> None:
-    """Run the message history microservice.
-
-    Subscribes to all chat subjects (chat.>) and persists any received
-    JSON messages that include a numeric serverId field.
-    """
-
+    """Run the message history microservice using Supabase/Postgres."""
+    await message_history.init()
     nc = await get_nats()
-
-    # History directory (shared volume). Defaults to ./message_history
-    module_dir = Path(__file__).parent
-    history_dir = Path(os.environ.get("HISTORY_DIR", str(module_dir / "message_history")))
-    history_dir.mkdir(exist_ok=True, parents=True)
-
-    def _history_file(server_id: int) -> Path:
-        return history_dir / f"server_{server_id}_history.jsonl"
-
-    def _append_message(server_id: int, message_data: dict) -> None:
-        if "timestamp" not in message_data:
-            message_data["timestamp"] = datetime.now(timezone.utc).isoformat()
-        file_path = _history_file(server_id)
-        with open(file_path, "a", encoding="utf-8") as f:
-            f.write(json.dumps(message_data) + "\n")
 
     async def handler(msg: "nats.aio.msg.Msg") -> None:  # type: ignore[name-defined]
         try:
@@ -64,7 +48,7 @@ async def run_service() -> None:
         server_id = data.get("serverId")
         if isinstance(server_id, int):
             try:
-                _append_message(server_id, data)
+                await message_history.save_message(server_id, data)
             except Exception:
                 # Swallow errors to keep the subscriber healthy
                 pass
@@ -75,19 +59,17 @@ async def run_service() -> None:
     # Wait until cancelled
     stop_event: asyncio.Event = asyncio.Event()
 
-    def _signal_handler(*_args):  # noqa: ANN001
-        try:
-            stop_event.set()
-        except Exception:
-            pass
+    def _signal_handler(*_args):
+        stop_event.set()
 
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGINT, signal.SIGTERM):
         try:
             loop.add_signal_handler(sig, _signal_handler)
         except NotImplementedError:
-            # Windows may not support all signals in asyncio
-            signal.signal(sig, lambda *_a, **_k: _signal_handler())  # type: ignore[misc]
+            import signal as sigmod
+
+            sigmod.signal(sig, lambda *_a, **_k: _signal_handler())  # type: ignore
 
     try:
         await stop_event.wait()

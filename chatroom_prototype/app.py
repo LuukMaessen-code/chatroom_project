@@ -8,6 +8,14 @@ from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
+# Load environment variables from .env early, before importing modules that read env
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv()
+except Exception:
+    pass
+
 try:
     # Try package-style imports (when run as module)
     from .db import ensure_default_server, get_db, get_server_by_id, list_servers
@@ -38,6 +46,12 @@ async def lifespan(app: FastAPI):
     except Exception:
         # It's okay if NATS isn't running at startup; connections will be
         # retried on first use
+        pass
+    # Initialize message history backend (e.g., Postgres pool)
+    try:
+        await message_history.init()
+    except Exception:
+        # Allow app to start; endpoints using history will error if misconfigured
         pass
     yield
     # Shutdown: close NATS if connected
@@ -98,7 +112,7 @@ async def api_get_messages(server_id: int, limit: int = 100) -> list[dict]:
         if server is None:
             raise HTTPException(status_code=404, detail="Server not found")
 
-    messages = message_history.get_messages(server_id, limit)
+    messages = await message_history.get_messages(server_id, limit)
     return messages
 
 
@@ -144,7 +158,7 @@ async def websocket_endpoint(websocket: WebSocket, server_id: int) -> None:
 
     try:
         # Send message history to the new user
-        history_messages = message_history.get_messages(server_id, limit=50)
+        history_messages = await message_history.get_messages(server_id, limit=50)
         for msg in history_messages:
             try:
                 await websocket.send_text(json.dumps(msg))

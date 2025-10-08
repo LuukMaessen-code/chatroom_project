@@ -14,6 +14,8 @@ services:
       context: .
       dockerfile: docker/Dockerfile.web
     container_name: chat-web
+    env_file:
+      - .env
     environment:
       - NATS_URL=nats://nats:4222
     depends_on:
@@ -22,22 +24,21 @@ services:
       - "8000:8000"
     volumes:
       - chat_db:/app/chatroom.db
-      - chat_history:/app/chatroom_prototype/message_history
 
   history:
     build:
       context: .
       dockerfile: docker/Dockerfile.history
     container_name: chat-history
+    env_file:
+      - .env
     environment:
       - NATS_URL=nats://nats:4222
     depends_on:
       - nats
-    volumes:
-      - chat_history:/app/message_history
+    volumes: []
 
 volumes:
   chat_db:
-  chat_history:
 
 
