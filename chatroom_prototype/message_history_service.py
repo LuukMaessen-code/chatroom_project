@@ -20,9 +20,7 @@ except ImportError:
     # Fallback for direct script execution
     from history_io import message_history
 
-
 _nats_connection: Optional[nats.NATS] = None
-
 
 async def get_nats() -> nats.NATS:
     global _nats_connection
@@ -32,7 +30,6 @@ async def get_nats() -> nats.NATS:
     nats_url = os.environ.get("NATS_URL", "nats://127.0.0.1:4222")
     _nats_connection = await nats.connect(servers=[nats_url])
     return _nats_connection
-
 
 async def run_service() -> None:
     """Run the message history microservice using Supabase/Postgres."""
@@ -127,11 +124,9 @@ async def run_service() -> None:
         finally:
             pass
 
-
 def main() -> None:
     asyncio.run(run_service())
 
 
 if __name__ == "__main__":
     main()
-    
