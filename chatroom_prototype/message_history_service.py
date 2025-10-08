@@ -22,6 +22,7 @@ except ImportError:
 
 _nats_connection: Optional[nats.NATS] = None
 
+
 async def get_nats() -> nats.NATS:
     global _nats_connection
     if _nats_connection is not None and _nats_connection.is_connected:
@@ -30,6 +31,7 @@ async def get_nats() -> nats.NATS:
     nats_url = os.environ.get("NATS_URL", "nats://127.0.0.1:4222")
     _nats_connection = await nats.connect(servers=[nats_url])
     return _nats_connection
+
 
 async def run_service() -> None:
     """Run the message history microservice using Supabase/Postgres."""
@@ -123,6 +125,7 @@ async def run_service() -> None:
                 await _nats_connection.close()
         finally:
             pass
+
 
 def main() -> None:
     asyncio.run(run_service())
