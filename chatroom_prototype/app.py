@@ -134,7 +134,14 @@ async def websocket_endpoint(websocket: WebSocket, server_id: int) -> None:
 
     await websocket.accept()
 
-    nc = await get_nats()
+    # Ensure NATS is available; if not, signal the client to retry later.
+    try:
+        nc = await get_nats()
+    except Exception:
+        try:
+            await websocket.close(code=1013)  # Try Again Later
+        finally:
+            return
     subject = f"chat.{server_id}"
 
     send_queue: asyncio.Queue[bytes] = asyncio.Queue()
@@ -157,14 +164,23 @@ async def websocket_endpoint(websocket: WebSocket, server_id: int) -> None:
     sender_task = asyncio.create_task(ws_sender())
 
     try:
-        # Send message history to the new user
-        history_messages = await message_history.get_messages(server_id, limit=50)
+        # Send message history to the new user (best-effort)
+        try:
+            history_messages = await message_history.get_messages(server_id, limit=50)
+        except Exception:
+            history_messages = []
         for msg in history_messages:
             try:
                 await websocket.send_text(json.dumps(msg))
             except Exception:
                 # If we can't send history, continue anyway
                 pass
+
+        # Notify history service to watch this room
+        try:
+            await nc.publish(f"chat.history.watch.{server_id}", b"{}")
+        except Exception:
+            pass
 
         # Notify join
         join_payload = json.dumps(

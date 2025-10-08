@@ -36,25 +36,59 @@ async def get_nats() -> nats.NATS:
 
 async def run_service() -> None:
     """Run the message history microservice using Supabase/Postgres."""
-    await message_history.init()
+    # Initialize DB pool with simple retry to handle cold starts
+    attempt = 0
+    while True:
+        try:
+            await message_history.init()
+            print("[history] DB pool initialized")
+            break
+        except Exception as exc:
+            attempt += 1
+            print(f"[history] DB init failed (attempt {attempt}): {exc}")
+            await asyncio.sleep(min(5 * attempt, 30))
+
     nc = await get_nats()
+    print("[history] Connected to NATS")
 
     async def handler(msg: "nats.aio.msg.Msg") -> None:  # type: ignore[name-defined]
         try:
-            data = json.loads(msg.data.decode("utf-8"))
-        except (UnicodeDecodeError, json.JSONDecodeError):
+            payload = msg.data.decode("utf-8")
+            data = json.loads(payload)
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            print(f"[history] skip non-json on {msg.subject}: {exc}")
             return
 
         server_id = data.get("serverId")
-        if isinstance(server_id, int):
-            try:
-                await message_history.save_message(server_id, data)
-            except Exception:
-                # Swallow errors to keep the subscriber healthy
-                pass
+        if not isinstance(server_id, int):
+            print(f"[history] skip message without numeric serverId on {msg.subject}: {data}")
+            return
 
-    # Subscribe to all chat messages for all servers
-    sub = await nc.subscribe("chat.>", cb=handler)
+        try:
+            await message_history.save_message(server_id, data)
+            # Lightweight success indicator (can be noisy; keep minimal)
+            print(f"[history] saved server={server_id} type={data.get('type')} user={data.get('username')}")
+        except Exception as exc:
+            print(f"[history] save failed server={server_id}: {exc}")
+
+    # Dynamic room subscriptions: subscribe when a client joins
+    active_room_subs: dict[int, nats.aio.subscription.Subscription] = {}
+
+    async def watch_handler(msg: "nats.aio.msg.Msg") -> None:  # type: ignore[name-defined]
+        subject = msg.subject  # chat.history.watch.{server_id}
+        try:
+            server_id = int(subject.rsplit(".", 1)[-1])
+        except Exception:
+            print(f"[history] invalid watch subject: {subject}")
+            return
+        if server_id in active_room_subs:
+            return
+        room_subject = f"chat.{server_id}"
+        active_room_subs[server_id] = await nc.subscribe(room_subject, cb=handler)
+        print(f"[history] now watching {room_subject}")
+
+    await nc.subscribe("chat.history.watch.*", cb=watch_handler)
+    print("[history] Subscribed to chat.history.watch.* (room discovery)")
 
     # Wait until cancelled
     stop_event: asyncio.Event = asyncio.Event()
@@ -74,8 +108,13 @@ async def run_service() -> None:
     try:
         await stop_event.wait()
     finally:
+        # Unsubscribe dynamic room subscriptions
         try:
-            await sub.unsubscribe()
+            for _sid, _sub in list(active_room_subs.items()):
+                try:
+                    await _sub.unsubscribe()
+                except Exception:
+                    pass
         except Exception:
             pass
         try:

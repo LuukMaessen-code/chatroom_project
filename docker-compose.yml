@@ -22,8 +22,7 @@ services:
       - nats
     ports:
       - "8000:8000"
-    volumes:
-      - chat_db:/app/chatroom.db
+    volumes: []
 
   history:
     build:
@@ -38,7 +37,10 @@ services:
       - nats
     volumes: []
 
-volumes:
-  chat_db:
+volumes: {}
+
+networks:
+  default:
+    enable_ipv6: true
 
 
