@@ -58,7 +58,7 @@ jobs:
   docker:
     runs-on: ubuntu-latest
     needs: build
-    if: github.ref == 'refs/heads/cd'  # Only run Docker job on cd branch
+    if: github.ref == 'refs/heads/main'  # Only run Docker job on cd branch
 
     steps:
       - uses: actions/checkout@v3
