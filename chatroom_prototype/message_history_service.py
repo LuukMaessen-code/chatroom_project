@@ -67,7 +67,10 @@ async def run_service() -> None:
         try:
             await message_history.save_message(server_id, data)
             # Lightweight success indicator (can be noisy; keep minimal)
-            print(f"[history] saved server={server_id} type={data.get('type')} user={data.get('username')}")
+            print(
+                f"[history] saved server={server_id} type={data.get('type')} "
+                f"user={data.get('username')}"
+            )
         except Exception as exc:
             print(f"[history] save failed server={server_id}: {exc}")
 
@@ -131,3 +134,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+    
