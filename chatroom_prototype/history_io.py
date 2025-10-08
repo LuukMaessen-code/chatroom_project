@@ -14,6 +14,8 @@ class MessageHistory:
             # Defer raising until first use to allow app startup without DB
             self.database_url = None  # type: ignore[assignment]
         self.pool: Optional[asyncpg.pool.Pool] = None
+        # Back-compat for tests that monkeypatch history_dir
+        self.history_dir = None
 
     async def init(self):
         if self.pool is not None:
