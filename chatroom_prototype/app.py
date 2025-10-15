@@ -45,6 +45,15 @@ async def lifespan(app: FastAPI):
         ensure_default_server(conn)
     try:
         await get_nats()
+        # Ensure JetStream and CHAT stream exist early to avoid races
+        try:
+            js = await get_jetstream()
+            try:
+                await js.stream_info("CHAT")
+            except Exception:
+                await js.add_stream(name="CHAT", subjects=["chat.*"])  # create if missing
+        except Exception:
+            pass
     except Exception:
         # It's okay if NATS isn't running at startup; connections will be
         # retried on first use
@@ -98,14 +107,12 @@ async def get_jetstream():
     js = nc.jetstream()
     # Ensure stream exists for chat subjects
     try:
-        await js.add_stream({
-            "name": "CHAT",
-            "subjects": ["chat.*"],
-            "retention": "limits",
-        })
+        await js.stream_info("CHAT")
     except Exception:
-        # Stream likely exists
-        pass
+        try:
+            await js.add_stream(name="CHAT", subjects=["chat.*"])  # basic defaults
+        except Exception:
+            pass
     _js = js
     return _js
 

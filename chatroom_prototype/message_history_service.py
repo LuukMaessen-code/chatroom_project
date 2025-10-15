@@ -50,15 +50,15 @@ async def run_service() -> None:
 
     nc = await get_nats()
     js = nc.jetstream()
-    # Ensure stream for chat subjects exists
+    # Ensure stream for chat subjects exists, create if missing
     try:
-        await js.add_stream({
-            "name": "CHAT",
-            "subjects": ["chat.*"],
-            "retention": "limits",
-        })
+        await js.stream_info("CHAT")
     except Exception:
-        pass
+        try:
+            await js.add_stream(name="CHAT", subjects=["chat.*"])  # basic defaults
+            print("[history] Created CHAT stream")
+        except Exception as exc:
+            print(f"[history] Could not create CHAT stream: {exc}")
     print("[history] Connected to NATS")
 
     async def handler(msg: "nats.aio.msg.Msg") -> None:  # type: ignore[name-defined]
@@ -97,7 +97,15 @@ async def run_service() -> None:
         if server_id in active_room_subs:
             return
         room_subject = f"chat.{server_id}"
-        # Use JetStream durable consumer per room
+        # Use JetStream durable consumer per room; ensure stream exists first
+        try:
+            await js.stream_info("CHAT")
+        except Exception:
+            try:
+                await js.add_stream(name="CHAT", subjects=["chat.*"])  # create if missing
+                print("[history] Created CHAT stream before subscribe")
+            except Exception:
+                pass
         sub = await js.subscribe(
             room_subject,
             durable=f"history_room_{server_id}",
