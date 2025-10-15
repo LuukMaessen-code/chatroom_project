@@ -2,7 +2,7 @@ import asyncio
 import json
 import os
 from contextlib import asynccontextmanager
-from typing import Optional
+from typing import Optional, List
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
@@ -20,10 +20,12 @@ try:
     # Try package-style imports (when run as module)
     from .db import ensure_default_server, get_db, get_server_by_id, list_servers
     from .history_io import message_history
+    from .models import ChatMessage, Server
 except ImportError:
     # Fall back to direct imports (when run directly or in tests)
     from db import ensure_default_server, get_db, get_server_by_id, list_servers
     from history_io import message_history
+    from models import ChatMessage, Server
 
 try:
     import nats
@@ -74,6 +76,7 @@ app.mount("/public", StaticFiles(directory=public_dir), name="public")
 
 
 _nats_connection: Optional[nats.NATS] = None
+_js: Optional["nats.js.JetStreamContext"] = None  # type: ignore[valid-type]
 
 
 async def get_nats() -> nats.NATS:
@@ -87,6 +90,26 @@ async def get_nats() -> nats.NATS:
     return _nats_connection
 
 
+async def get_jetstream():
+    global _js
+    nc = await get_nats()
+    if _js is not None:
+        return _js
+    js = nc.jetstream()
+    # Ensure stream exists for chat subjects
+    try:
+        await js.add_stream({
+            "name": "CHAT",
+            "subjects": ["chat.*"],
+            "retention": "limits",
+        })
+    except Exception:
+        # Stream likely exists
+        pass
+    _js = js
+    return _js
+
+
 @app.get("/", response_class=HTMLResponse)
 async def root_html() -> HTMLResponse:
     # Serve the index.html from /public
@@ -97,15 +120,15 @@ async def root_html() -> HTMLResponse:
         return HTMLResponse(content=f.read())
 
 
-@app.get("/api/servers")
-async def api_list_servers() -> list[dict]:
+@app.get("/api/servers", response_model=List[Server])
+async def api_list_servers() -> list[Server]:
     with get_db() as conn:
         servers = list_servers(conn)
-    return servers
+    return [Server(**srv) for srv in servers]
 
 
-@app.get("/api/servers/{server_id}/messages")
-async def api_get_messages(server_id: int, limit: int = 100) -> list[dict]:
+@app.get("/api/servers/{server_id}/messages", response_model=List[ChatMessage])
+async def api_get_messages(server_id: int, limit: int = 100) -> list[ChatMessage]:
     """Get message history for a server."""
     with get_db() as conn:
         server = get_server_by_id(conn, server_id)
@@ -113,7 +136,8 @@ async def api_get_messages(server_id: int, limit: int = 100) -> list[dict]:
             raise HTTPException(status_code=404, detail="Server not found")
 
     messages = await message_history.get_messages(server_id, limit)
-    return messages
+    # Coerce to models (accept dicts from storage)
+    return [ChatMessage(**m) if not isinstance(m, ChatMessage) else m for m in messages]
 
 
 @app.websocket("/ws/{server_id}")
@@ -137,6 +161,7 @@ async def websocket_endpoint(websocket: WebSocket, server_id: int) -> None:
     # Ensure NATS is available; if not, signal the client to retry later.
     try:
         nc = await get_nats()
+        js = await get_jetstream()
     except Exception:
         try:
             await websocket.close(code=1013)  # Try Again Later
@@ -171,7 +196,10 @@ async def websocket_endpoint(websocket: WebSocket, server_id: int) -> None:
             history_messages = []
         for msg in history_messages:
             try:
-                await websocket.send_text(json.dumps(msg))
+                if isinstance(msg, ChatMessage):
+                    await websocket.send_text(msg.model_dump_json(by_alias=True))
+                else:
+                    await websocket.send_text(json.dumps(msg))
             except Exception:
                 # If we can't send history, continue anyway
                 pass
@@ -183,43 +211,28 @@ async def websocket_endpoint(websocket: WebSocket, server_id: int) -> None:
             pass
 
         # Notify join
-        join_payload = json.dumps(
-            {
-                "type": "system",
-                "event": "join",
-                "serverId": server_id,
-                "username": username,
-            }
-        ).encode("utf-8")
-        await nc.publish(subject, join_payload)
+        join_msg = ChatMessage(type="system", event="join", server_id=server_id, username=username)
+        await js.publish(subject, join_msg.model_dump_json(by_alias=True).encode("utf-8"))
 
         while True:
             text = await websocket.receive_text()
-            # Expect client to send simple text; wrap into JSON
-            payload = json.dumps(
-                {
-                    "type": "message",
-                    "serverId": server_id,
-                    "text": text,
-                    "username": username,
-                }
-            ).encode("utf-8")
-            await nc.publish(subject, payload)
+            # Expect client to send simple text; wrap into model
+            chat_msg = ChatMessage(
+                type="message",
+                server_id=server_id,
+                text=text,
+                username=username,
+            )
+            await js.publish(subject, chat_msg.model_dump_json(by_alias=True).encode("utf-8"))
 
     except WebSocketDisconnect:
         pass
     finally:
         try:
             # Notify leave
-            leave_payload = json.dumps(
-                {
-                    "type": "system",
-                    "event": "leave",
-                    "serverId": server_id,
-                    "username": username,
-                }
-            ).encode("utf-8")
-            await nc.publish(subject, leave_payload)
+            leave_msg = ChatMessage(type="system", event="leave", server_id=server_id, username=username)
+            js = await get_jetstream()
+            await js.publish(subject, leave_msg.model_dump_json(by_alias=True).encode("utf-8"))
         except Exception:
             pass
 
