@@ -30,5 +30,3 @@ class ChatMessage(BaseModel):
     class Config:
         populate_by_name = True
         json_encoders = {datetime: lambda dt: dt.astimezone(timezone.utc).isoformat()}
-
-

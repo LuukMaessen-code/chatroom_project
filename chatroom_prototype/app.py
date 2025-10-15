@@ -237,7 +237,12 @@ async def websocket_endpoint(websocket: WebSocket, server_id: int) -> None:
     finally:
         try:
             # Notify leave
-            leave_msg = ChatMessage(type="system", event="leave", server_id=server_id, username=username)
+            leave_msg = ChatMessage(
+                type="system",
+                event="leave",
+                server_id=server_id,
+                username=username,
+            )
             js = await get_jetstream()
             await js.publish(subject, leave_msg.model_dump_json(by_alias=True).encode("utf-8"))
         except Exception:
