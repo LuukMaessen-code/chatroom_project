@@ -9,6 +9,23 @@ services:
       - "4222:4222"
       - "8222:8222"  # monitoring
 
+  postgres:
+    image: postgres:16-alpine
+    container_name: chat-postgres
+    environment:
+      - POSTGRES_DB=chat
+      - POSTGRES_USER=chat
+      - POSTGRES_PASSWORD=chat
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "chat"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   web:
     build:
       context: .
@@ -19,7 +36,10 @@ services:
     environment:
       - NATS_URL=nats://nats:4222
     depends_on:
-      - nats
+      nats:
+        condition: service_started
+      postgres:
+        condition: service_healthy
     ports:
       - "8000:8000"
     volumes: []
@@ -34,10 +54,14 @@ services:
     environment:
       - NATS_URL=nats://nats:4222
     depends_on:
-      - nats
+      nats:
+        condition: service_started
+      postgres:
+        condition: service_healthy
     volumes: []
 
-volumes: {}
+volumes:
+  pgdata: {}
 
 networks:
   default:

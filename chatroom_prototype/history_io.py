@@ -1,8 +1,11 @@
 import os
 import json
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 import asyncpg
 from datetime import datetime, timezone
+
+
+from .models import ChatMessage
 
 
 class MessageHistory:
@@ -51,9 +54,13 @@ class MessageHistory:
                 """
             )
 
-    async def save_message(self, server_id: int, message_data: Dict) -> None:
+    async def save_message(self, server_id: int, message_data: Union[Dict, ChatMessage]) -> None:
         # Normalize timestamp to a datetime object for timestamptz column
-        ts = message_data.get("timestamp")
+        if isinstance(message_data, ChatMessage):
+            data_dict = message_data.model_dump(by_alias=True)
+        else:
+            data_dict = message_data
+        ts = data_dict.get("timestamp")
         if ts is None:
             ts_dt = datetime.now(timezone.utc)
         elif isinstance(ts, str):
@@ -74,15 +81,15 @@ class MessageHistory:
                 VALUES ($1, $2, $3, $4, $5, $6, $7)
                 """,
                 server_id,
-                message_data.get("type"),
-                message_data.get("event"),
-                message_data.get("username"),
-                message_data.get("text"),
+                data_dict.get("type"),
+                data_dict.get("event"),
+                data_dict.get("username"),
+                data_dict.get("text"),
                 ts_dt,
-                json.dumps(message_data),
+                json.dumps(data_dict),
             )
 
-    async def get_messages(self, server_id: int, limit: Optional[int] = 100) -> List[Dict]:
+    async def get_messages(self, server_id: int, limit: Optional[int] = 100) -> List[ChatMessage]:
         await self._ensure_pool()
         async with self.pool.acquire() as conn:
             rows = await conn.fetch(
@@ -96,7 +103,7 @@ class MessageHistory:
                 server_id,
                 limit,
             )
-        return [json.loads(row["raw_data"]) for row in rows]
+        return [ChatMessage(**json.loads(row["raw_data"])) for row in rows]
 
     async def clear_history(self, server_id: int) -> None:
         await self._ensure_pool()

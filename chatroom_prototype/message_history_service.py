@@ -13,6 +13,7 @@ except Exception:
     pass
 
 import nats
+from .models import ChatMessage
 try:
     # Prefer package-relative import when executed as a module
     from .history_io import message_history
@@ -48,6 +49,16 @@ async def run_service() -> None:
             await asyncio.sleep(min(5 * attempt, 30))
 
     nc = await get_nats()
+    js = nc.jetstream()
+    # Ensure stream for chat subjects exists, create if missing
+    try:
+        await js.stream_info("CHAT")
+    except Exception:
+        try:
+            await js.add_stream(name="CHAT", subjects=["chat.*"])  # basic defaults
+            print("[history] Created CHAT stream")
+        except Exception as exc:
+            print(f"[history] Could not create CHAT stream: {exc}")
     print("[history] Connected to NATS")
 
     async def handler(msg: "nats.aio.msg.Msg") -> None:  # type: ignore[name-defined]
@@ -64,7 +75,7 @@ async def run_service() -> None:
             return
 
         try:
-            await message_history.save_message(server_id, data)
+            await message_history.save_message(server_id, ChatMessage(**data))
             # Lightweight success indicator (can be noisy; keep minimal)
             print(
                 f"[history] saved server={server_id} type={data.get('type')} "
@@ -86,7 +97,22 @@ async def run_service() -> None:
         if server_id in active_room_subs:
             return
         room_subject = f"chat.{server_id}"
-        active_room_subs[server_id] = await nc.subscribe(room_subject, cb=handler)
+        # Use JetStream durable consumer per room; ensure stream exists first
+        try:
+            await js.stream_info("CHAT")
+        except Exception:
+            try:
+                await js.add_stream(name="CHAT", subjects=["chat.*"])  # create if missing
+                print("[history] Created CHAT stream before subscribe")
+            except Exception:
+                pass
+        sub = await js.subscribe(
+            room_subject,
+            durable=f"history_room_{server_id}",
+            deliver_policy="all",
+            cb=handler,
+        )
+        active_room_subs[server_id] = sub
         print(f"[history] now watching {room_subject}")
 
     await nc.subscribe("chat.history.watch.*", cb=watch_handler)
