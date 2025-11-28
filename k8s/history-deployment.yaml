@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chatroom-history
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: chatroom-history
+  template:
+    metadata:
+      labels:
+        app: chatroom-history
+    spec:
+      containers:
+        - name: chatroom-history
+          image: DOCKERHUB_USERNAME/chatroom-history:IMAGE_TAG
+          env:
+            - name: NATS_URL
+              value: "nats://nats:4222"

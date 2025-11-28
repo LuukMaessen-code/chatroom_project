@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chatroom-web
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: chatroom-web
+  template:
+    metadata:
+      labels:
+        app: chatroom-web
+    spec:
+      containers:
+        - name: chatroom-web
+          image: DOCKERHUB_USERNAME/chatroom-web:IMAGE_TAG
+          ports:
+            - containerPort: 8000
+          env:
+            - name: NATS_URL
+              value: "nats://nats:4222"
