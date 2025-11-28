@@ -118,8 +118,8 @@ jobs:
       # Replace image tags in manifests dynamically
       - name: Update image tags
         run: |
-          sed -i "s|IMAGE_TAG|${IMAGE_TAG}|g" k8s/deployment-history.yaml
-          sed -i "s|IMAGE_TAG|${IMAGE_TAG}|g" k8s/deployment-web.yaml
+          sed -i "s|IMAGE_TAG|${IMAGE_TAG}|g" k8s/history-deployment.yaml
+          sed -i "s|IMAGE_TAG|${IMAGE_TAG}|g" k8s/web-deployment.yaml
 
       # Apply Kubernetes manifests (assumes Minikube kubeconfig is available locally)
       - name: Deploy to Minikube
