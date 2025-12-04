@@ -1,0 +1,31 @@
+name: Bandit Security Scan
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+  workflow_dispatch:  # manual trigger
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write   # required to upload SARIF results
+      actions: read
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Perform Bandit Analysis
+        uses: PyCQA/bandit-action@v1
+        with:
+          targets: "."
+          output_format: "sarif"
+          output_file: "bandit.sarif"
+
+      - name: Upload SARIF to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: bandit.sarif
