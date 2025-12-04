@@ -1,6 +1,9 @@
 name: CI
 
-on: [push]  # Trigger the workflow on every push
+on: 
+  push: 
+    branches: [main]  # Trigger the workflow on every push to main
+  workflow_dispatch:  # Manual trigger for workflow
 
 jobs:
   sast_scan:
