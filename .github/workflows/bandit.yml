@@ -1,34 +1,30 @@
-name: Bandit Security Scan
+name: CI
 
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-  workflow_dispatch:
+on: [push]  # Trigger the workflow on every push
 
 jobs:
-  analyze:
+  sast_scan:
+    name: Run Bandit Scan
     runs-on: ubuntu-latest
-    permissions:
-      security-events: write
-      actions: read
-      contents: read
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v2
 
-      - name: Perform Bandit Analysis
-        uses: PyCQA/bandit-action@v1
+      - name: Set up Python
+        uses: actions/setup-python@v5.6.0
         with:
-          targets: "."
-          output_format: "sarif"
-          output_file: "bandit.sarif"
+          python-version: 3.8
 
-      - name: Debug: list files
-        run: ls -R .
+      - name: Install Bandit 
+        run: pip install bandit 
 
-      - name: Upload SARIF to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v3
+      - name: Run Bandit Scan
+        run: bandit -r . -f json -o bandit-report.json
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        if: always()
         with:
-          sarif_file: "bandit.sarif"
+          name: bandit-findings
+          path: bandit-report.json
