@@ -14,9 +14,21 @@ spec:
     spec:
       containers:
         - name: chatroom-web
-          image: DOCKERHUB_USERNAME/chatroom-web:IMAGE_TAG
+          image: luukmn/chatroom-web:latest
           ports:
             - containerPort: 8000
           env:
             - name: NATS_URL
               value: "nats://nats:4222"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 3
+            periodSeconds: 5

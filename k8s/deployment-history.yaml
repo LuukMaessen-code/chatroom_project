@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: chatroom-history
-          image: DOCKERHUB_USERNAME/chatroom-history:IMAGE_TAG
+          image: luukmn/chatroom-history:latest
           env:
             - name: NATS_URL
               value: "nats://nats:4222"

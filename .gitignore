@@ -2,4 +2,16 @@
 *.env
 .env.local
 .env.*.local
+.deploy-minikube.ps1
 
+# Node / React
+node_modules/
+frontend/web/dist/
+frontend/web/.vite/
+
+# Python
+__pycache__/
+.venv/
+.env
+./__pycache__/
+*/__pycache__/
