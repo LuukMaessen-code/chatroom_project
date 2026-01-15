@@ -11,7 +11,7 @@ def test_ensure_default_server_creates_one(tmp_path):
         assert len(rows) == 1
         assert rows[0][1] == "Main Room"
 
-
+ 
 def test_list_servers_returns_default(tmp_path):
     db_path = tmp_path / "chatroom.db"
     db_mod.DB_PATH = str(db_path)
